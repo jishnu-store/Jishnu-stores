@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Local Shop</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f6fa;color:#222}
+header{background:#111827;color:#fff;padding:16px;position:sticky;top:0;z-index:5}
+.top{max-width:1000px;margin:auto;display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:21px;font-weight:800}.btn{border:0;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer}
+.cart{background:#fff;color:#111827}.admin{background:#f3f4f6;color:#111827;margin-left:6px}
+.hero{max-width:1000px;margin:18px auto;padding:25px 18px;background:#fff;border-radius:16px}
+.grid{max-width:1000px;margin:auto;padding:0 10px 30px;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:15px}
+.card{background:#fff;border-radius:15px;padding:12px;box-shadow:0 2px 10px #0001}
+.photo{width:100%;height:170px;object-fit:cover;border-radius:11px;background:#eef0f5}
+.card h3{margin:10px 0 4px}.price{font-size:19px;font-weight:800}.buy{width:100%;margin-top:9px;background:#111827;color:white}
+.modal{display:none;position:fixed;inset:0;background:#0008;z-index:20;padding:14px;align-items:center;justify-content:center}
+.box{background:#fff;border-radius:16px;padding:18px;width:min(520px,100%);max-height:90vh;overflow:auto}
+input,textarea{width:100%;padding:11px;margin:6px 0;border:1px solid #ddd;border-radius:8px}
+.row{display:flex;gap:8px}.row>*{flex:1}.danger{background:#fee2e2}.save{background:#111827;color:#fff}
+.preview{width:90px;height:70px;object-fit:cover;border-radius:7px;margin-top:6px}
+.small{color:#666;font-size:13px}footer{text-align:center;padding:25px;color:#777}
+</style>
+</head>
+<body>
+<header><div class="top">
+<div class="logo" id="shopName">My Local Shop</div>
+<div><button class="btn cart" onclick="openCart()">🛒 Cart <span id="count">0</span></button>
+<button class="btn admin" onclick="openAdmin()">⚙️ Edit Shop</button></div>
+</div></header>
+
+<section class="hero"><h1 id="heroTitle">Local Delivery Store</h1><p id="heroSub">Quality products • Cash on Delivery</p></section>
+<div class="grid" id="products"></div>
+<footer>COD available in selected local areas.</footer>
+
+<div class="modal" id="adminModal"><div class="box">
+<h2>⚙️ Shop Edit Panel</h2>
+<p class="small">Yahin se shop name, WhatsApp number aur products edit kar sakte ho.</p>
+<input id="shopInput" placeholder="Shop name">
+<input id="waInput" placeholder="WhatsApp number e.g. 919876543210">
+<input id="titleInput" placeholder="Main heading">
+<input id="subInput" placeholder="Short description">
+<hr><h3>Add / Edit Product</h3>
+<input type="hidden" id="editIndex" value="-1">
+<input id="pName" placeholder="Product name">
+<input id="pPrice" type="number" placeholder="Price (₹)">
+<input id="pPhoto" type="file" accept="image/*">
+<img id="preview" class="preview" style="display:none">
+<div class="row"><button class="btn save" onclick="saveProduct()">Save Product</button><button class="btn" onclick="resetForm()">Clear</button></div>
+<div id="adminList"></div>
+<hr><button class="btn save" onclick="saveShop()">Save Shop Settings</button>
+<button class="btn" onclick="closeAdmin()">Close</button>
+</div></div>
+
+<div class="modal" id="cartModal"><div class="box">
+<h2>🧾 Your Order</h2><div id="cartItems"></div>
+<input id="custName" placeholder="Your name"><input id="custPhone" placeholder="Mobile number">
+<textarea id="custAddress" rows="3" placeholder="Full delivery address"></textarea>
+<p><b>Payment: Cash on Delivery</b></p>
+<div class="row"><button class="btn" onclick="closeCart()">Close</button><button class="btn save" onclick="order()">Place COD Order</button></div>
+</div></div>
+
+<script>
+const defaultProducts=[
+ {name:"Premium Highlighter Set",price:99,img:""},
+ {name:"Sticky Notes Combo",price:79,img:""},
+ {name:"Study Pen Pack",price:129,img:""},
+ {name:"Student Pencil Pouch",price:149,img:""}
+];
+let products=JSON.parse(localStorage.getItem("products")||"null")||defaultProducts;
+let settings=JSON.parse(localStorage.getItem("settings")||"null")||{
+ name:"My Local Shop",wa:"919999999999",title:"Local Delivery Store",sub:"Quality products • Cash on Delivery"
+};
+let cart=[];
+
+function render(){
+ document.getElementById("shopName").textContent=settings.name;
+ document.getElementById("heroTitle").textContent=settings.title;
+ document.getElementById("heroSub").textContent=settings.sub;
+ document.getElementById("products").innerHTML=products.map((p,i)=>`
+ <div class="card">
+ ${p.img?`<img class="photo" src="${p.img}">`:`<div class="photo" style="display:flex;align-items:center;justify-content:center;font-size:50px">📦</div>`}
+ <h3>${esc(p.name)}</h3><div class="price">₹${p.price}</div>
+ <button class="btn buy" onclick="add(${i})">Add to Cart</button></div>`).join("");
+ document.getElementById("count").textContent=cart.length;
+}
+function esc(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")}
+function add(i){cart.push(products[i]);render();alert("Cart me add ho gaya.");}
+function openCart(){if(!cart.length){alert("Cart empty hai.");return}document.getElementById("cartItems").innerHTML=cart.map(x=>`<p>${esc(x.name)} — ₹${x.price}</p>`).join("")+`<hr><b>Total: ₹${cart.reduce((a,x)=>a+x.price,0)}</b>`;document.getElementById("cartModal").style.display="flex"}
+function closeCart(){document.getElementById("cartModal").style.display="none"}
+
+function openAdmin(){
+ document.getElementById("shopInput").value=settings.name;document.getElementById("waInput").value=settings.wa;
+ document.getElementById("titleInput").value=settings.title;document.getElementById("subInput").value=settings.sub;
+ renderAdmin();document.getElementById("adminModal").style.display="flex";
+}
+function closeAdmin(){document.getElementById("adminModal").style.display="none";resetForm()}
+function saveShop(){
+ settings={name:document.getElementById("shopInput").value||"My Local Shop",wa:document.getElementById("waInput").value.replace(/\D/g,""),title:document.getElementById("titleInput").value||"Local Delivery Store",sub:document.getElementById("subInput").value||"Quality products • Cash on Delivery"};
+ localStorage.setItem("settings",JSON.stringify(settings));render();alert("Shop settings save ho gaye.");
+}
+function resetForm(){document.getElementById("editIndex").value="-1";document.getElementById("pName").value="";document.getElementById("pPrice").value="";document.getElementById("pPhoto").value="";document.getElementById("preview").style.display="none"}
+document.getElementById("pPhoto").addEventListener("change",e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=()=>{document.getElementById("preview").src=r.result;document.getElementById("preview").style.display="block"};r.readAsDataURL(f)}});
+
+function saveProduct(){
+ const n=document.getElementById("pName").value.trim(),pr=Number(document.getElementById("pPrice").value),idx=Number(document.getElementById("editIndex").value),file=document.getElementById("pPhoto").files[0];
+ if(!n||!pr){alert("Product name aur price bharo.");return}
+ const finish=(img)=>{
+  const obj={name:n,price:pr,img:img||(idx>=0?products[idx].img:"")};
+  if(idx>=0)products[idx]=obj;else products.push(obj);
+  localStorage.setItem("products",JSON.stringify(products));render();renderAdmin();resetForm();alert("Product save ho gaya.");
+ };
+ if(file){const r=new FileReader();r.onload=()=>finish(r.result);r.readAsDataURL(file)}else finish("");
+}
+function renderAdmin(){
+ document.getElementById("adminList").innerHTML="<h3>Current Products</h3>"+products.map((p,i)=>`
+ <div style="border-top:1px solid #ddd;padding:10px 0"><b>${esc(p.name)}</b> — ₹${p.price}
+ <button class="btn" onclick="editProduct(${i})">Edit</button>
+ <button class="btn danger" onclick="deleteProduct(${i})">Delete</button></div>`).join("");
+}
+function editProduct(i){const p=products[i];document.getElementById("editIndex").value=i;document.getElementById("pName").value=p.name;document.getElementById("pPrice").value=p.price;if(p.img){document.getElementById("preview").src=p.img;document.getElementById("preview").style.display="block"}}
+function deleteProduct(i){if(confirm("Delete this product?")){products.splice(i,1);localStorage.setItem("products",JSON.stringify(products));render();renderAdmin()}}
+function order(){
+ const n=document.getElementById("custName").value.trim(),ph=document.getElementById("custPhone").value.trim(),a=document.getElementById("custAddress").value.trim();
+ if(!n||!ph||!a){alert("Name, mobile aur address bharo.");return}
+ const total=cart.reduce((s,x)=>s+x.price,0);
+ const items=cart.map(x=>x.name+" ₹"+x.price).join(", ");
+ const msg=`New COD Order%0AName: ${encodeURIComponent(n)}%0APhone: ${encodeURIComponent(ph)}%0AAddress: ${encodeURIComponent(a)}%0AItems: ${encodeURIComponent(items)}%0ATotal: ₹${total}`;
+ window.open("https://wa.me/"+settings.wa+"?text="+msg,"_blank");
+}
+render();
+</script>
+</body>
+</html>
