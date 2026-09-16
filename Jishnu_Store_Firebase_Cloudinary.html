@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jishnu Store</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f6f7fb;color:#172033}
+header{background:#111827;color:#fff;position:sticky;top:0;z-index:5}.wrap{max-width:1100px;margin:auto;padding:0 15px}
+.top{min-height:64px;display:flex;align-items:center;justify-content:space-between}.brand{font-size:21px;font-weight:800}
+button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer}.dark{background:#111827;color:white}.light{background:#eef2f7;color:#172033}.red{background:#dc2626;color:white}.green{background:#079455;color:white}
+.hero{padding:28px 0 12px}.hero h1{font-size:30px;margin:6px 0}.muted{color:#667085}.search{width:100%;padding:14px;border:1px solid #ddd;border-radius:12px;font-size:16px}
+.cats{display:flex;gap:8px;overflow:auto;padding:12px 0}.cat{white-space:nowrap;background:#fff;border:1px solid #ddd}.cat.active{background:#111827;color:white}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;padding-bottom:90px}.card{background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb}
+.cover{height:205px;background:#eef1f5;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative}.cover img,.cover video{width:100%;height:100%;object-fit:cover}.body{padding:14px}.body h3{margin:6px 0}.price{font-size:21px;font-weight:800}.old{text-decoration:line-through;color:#98a2b3;margin-left:6px}.off{font-size:12px;color:#067647;background:#ecfdf3;padding:4px;border-radius:5px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.fab{position:fixed;right:16px;bottom:16px;background:#111827;color:white;border:0;border-radius:30px;padding:15px 20px;z-index:10}
+.modal{display:none;position:fixed;inset:0;background:#0008;z-index:30;overflow:auto;padding:15px}.box{max-width:820px;margin:20px auto;background:#fff;border-radius:18px;padding:20px}.close{float:right}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{margin:9px 0}.field label{display:block;font-size:13px;margin-bottom:5px}.field input,.field textarea,.field select{width:100%;padding:11px;border:1px solid #d0d5dd;border-radius:9px}
+.gallery{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px}.gallery img,.gallery video{width:100%;height:75px;object-fit:cover;border-radius:8px}
+.mainphoto{height:330px;background:#f0f2f5;border-radius:12px;display:flex;align-items:center;justify-content:center}.mainphoto img,.mainphoto video{max-width:100%;max-height:100%;object-fit:contain;border-radius:12px}
+.order{border:1px solid #e4e7ec;border-radius:12px;padding:12px;margin:10px 0}.nav{display:flex;gap:7px;overflow:auto;margin-bottom:15px}.nav button{white-space:nowrap}
+.progress{font-size:13px;margin-top:8px;color:#475467}.thumb{position:relative}.thumb button{position:absolute;right:2px;top:2px;padding:4px 7px}
+@media(max-width:600px){.row{grid-template-columns:1fr}.hero h1{font-size:25px}.gallery{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<header><div class="wrap top"><div class="brand" id="shopName">Jishnu Store</div><button class="light" onclick="openCart()">🛒 <span id="ccount">0</span></button></div></header>
+
+<main class="wrap">
+<section class="hero">
+<div class="muted">Local Online Shopping</div><h1 id="title">Everything You Need, Near You</h1>
+<p id="sub">Quality products • Affordable prices • Local COD delivery</p>
+<input id="search" class="search" placeholder="🔎 Search products..." oninput="render()">
+<div id="cats" class="cats"></div>
+</section>
+<div id="products" class="grid"></div>
+</main>
+<button class="fab" onclick="openCart()">🛒 Cart</button>
+
+<div id="pmodal" class="modal"><div class="box"><button class="light close" onclick="closeM('pmodal')">✕</button><div id="pdetail"></div></div></div>
+<div id="cmodal" class="modal"><div class="box"><button class="light close" onclick="closeM('cmodal')">✕</button><h2>🛒 Cart</h2><div id="cart"></div><h3>Total: ₹<span id="total">0</span></h3><div id="checkout"></div></div></div>
+<div id="amodal" class="modal"><div class="box" id="abox"></div></div>
+
+<div id="loginModal" class="modal">
+<div class="box" style="max-width:430px">
+<button class="light close" onclick="closeM('loginModal')">✕</button>
+<h2>🔐 Admin Login</h2>
+<p class="muted">Use the Firebase Email/Password account you created.</p>
+<div class="field"><label>Email</label><input id="loginEmail" type="email"></div>
+<div class="field"><label>Password</label><input id="loginPassword" type="password"></div>
+<button class="dark" onclick="adminLogin()">Login</button>
+<p id="loginMsg" class="muted"></p>
+</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {
+  getFirestore, collection, getDocs, addDoc, setDoc, doc, deleteDoc,
+  updateDoc, getDoc
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC7webluYMMh_usAbfh7wpaJnM6cax7o_M",
+  authDomain: "jishnu-stores.firebaseapp.com",
+  projectId: "jishnu-stores",
+  storageBucket: "jishnu-stores.firebasestorage.app",
+  messagingSenderId: "117797252316",
+  appId: "1:117797252316:web:4263548b024cfad4d35819",
+  measurementId: "G-S5HZ7QCWJQ"
+};
+
+const app = initializeApp(firebaseConfig);
+const firestore = getFirestore(app);
+const auth = getAuth(app);
+
+/* Cloudinary settings */
+const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUDINARY_CLOUD_NAME";
+const CLOUDINARY_UPLOAD_PRESET = "Jishnu store";
+
+let db = {
+  settings:{name:"Jishnu Store",title:"Everything You Need, Near You",sub:"Quality products • Affordable prices • Local COD delivery",wa:"919999999999"},
+  products:[], orders:[], coupons:[]
+};
+let cartItems=[], cat="All", tempMedia=[], viewId=null, viewMedia=0, isAdmin=false;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));
+const money = n => Number(n||0).toLocaleString("en-IN");
+
+async function loadData(){
+  try{
+    const [ps,os,cs,ss] = await Promise.all([
+      getDocs(collection(firestore,"Products")),
+      getDocs(collection(firestore,"orders")),
+      getDocs(collection(firestore,"coupons")),
+      getDoc(doc(firestore,"settings","main"))
+    ]);
+    db.products = ps.docs.map(d=>({id:d.id,...d.data()}));
+    db.orders = os.docs.map(d=>({id:d.id,...d.data()}));
+    db.coupons = cs.docs.map(d=>({id:d.id,...d.data()}));
+    if(ss.exists()) db.settings = {...db.settings,...ss.data()};
+    $("shopName").textContent=db.settings.name;
+    $("title").textContent=db.settings.title;
+    $("sub").textContent=db.settings.sub;
+    render();
+  }catch(e){
+    console.error(e);
+    alert("Firebase data load error: "+e.message);
+  }
+}
+
+function render(){
+  const q=($("search").value||"").toLowerCase();
+  const cs=["All",...new Set(db.products.map(p=>p.cat).filter(Boolean))];
+  $("cats").innerHTML=cs.map(x=>`<button class="cat ${x===cat?"active":""}" onclick="setCat('${esc(x)}')">${esc(x)}</button>`).join("");
+  const ps=db.products.filter(p=>(cat==="All"||p.cat===cat)&&(!q||String(p.name||"").toLowerCase().includes(q)||String(p.cat||"").toLowerCase().includes(q)));
+  $("products").innerHTML=ps.map(p=>{
+    const media=(p.media&&p.media[0])||(p.imgs&&p.imgs[0])||"";
+    const isVideo=String(media).includes(".mp4")||String(media).includes("video/upload");
+    const off=p.mrp>p.price?Math.round((1-p.price/p.mrp)*100):0;
+    return `<div class="card"><div class="cover" onclick="view('${esc(p.id)}')">${
+      media?(isVideo?`<video src="${esc(media)}" muted autoplay loop playsinline></video>`:`<img src="${esc(media)}">`):"🛍️"
+    }</div><div class="body"><div class="muted">${esc(p.cat)}</div><h3>${esc(p.name)}</h3>
+    <span class="price">₹${money(p.price)}</span>${p.mrp>p.price?` <span class="old">₹${money(p.mrp)}</span> <span class="off">${off}% OFF</span>`:""}
+    <div class="muted">${Number(p.stock)>0?"In stock":"Out of stock"}</div>
+    <div class="actions"><button class="dark" onclick="add('${esc(p.id)}')" ${Number(p.stock)<1?"disabled":""}>Add to Cart</button><button class="light" onclick="view('${esc(p.id)}')">View</button></div>
+    </div></div>`;
+  }).join("")||"<p>No products found.</p>";
+  updateCount();
+}
+
+function setCat(x){cat=x;render()}
+function add(id){const p=db.products.find(x=>x.id===id);if(!p||Number(p.stock)<1)return;const i=cartItems.find(x=>x.id===id);if(i){if(i.qty<Number(p.stock))i.qty++}else cartItems.push({id,qty:1});updateCount()}
+function updateCount(){$("ccount").textContent=cartItems.reduce((a,b)=>a+b.qty,0)}
+function openCart(){drawCart();$("cmodal").style.display="block"}
+function closeM(x){$(x).style.display="none"}
+
+function view(id){
+  const p=db.products.find(x=>x.id===id);if(!p)return;
+  viewId=id;viewMedia=0;drawProduct(p);$("pmodal").style.display="block";
+}
+function drawProduct(p){
+  const media=p.media||p.imgs||[];
+  const src=media[viewMedia]||"";
+  const isVideo=String(src).includes(".mp4")||String(src).includes("video/upload");
+  $("pdetail").innerHTML=`<div class="mainphoto">${src?(isVideo?`<video src="${esc(src)}" controls playsinline></video>`:`<img src="${esc(src)}">`):"🛍️"}</div>
+  ${media.length?`<div class="gallery">${media.map((x,i)=>{const v=String(x).includes(".mp4")||String(x).includes("video/upload");return `<div class="thumb">${v?`<video src="${esc(x)}" muted></video>`:`<img src="${esc(x)}">`}<button class="light" onclick="viewMedia=${i};drawProduct(db.products.find(p=>p.id===viewId))">View</button></div>`}).join("")}</div>`:""}
+  <h2>${esc(p.name)}</h2><div class="muted">${esc(p.cat)}</div><h2>₹${money(p.price)} ${p.mrp>p.price?`<span class="old">₹${money(p.mrp)}</span>`:""}</h2>
+  <p>${esc(p.desc)}</p><p>${Number(p.stock)>0?"Available stock: "+p.stock:"Out of stock"}</p>
+  <button class="dark" onclick="add('${esc(p.id)}')">🛒 Add to Cart</button>`;
+}
+
+function drawCart(){
+  let sum=0;
+  $("cart").innerHTML=cartItems.map(i=>{
+    const p=db.products.find(x=>x.id===i.id);if(!p)return "";
+    sum+=Number(p.price)*i.qty;
+    return `<div class="order"><b>${esc(p.name)}</b><br>₹${money(p.price)} × ${i.qty}<div class="actions">
+    <button class="light" onclick="qty('${esc(p.id)}',-1)">−</button><button class="light">${i.qty}</button>
+    <button class="light" onclick="qty('${esc(p.id)}',1)">+</button><button class="red" onclick="rem('${esc(p.id)}')">Remove</button></div></div>`;
+  }).join("")||"<p>Cart empty.</p>";
+  $("total").textContent=money(sum);
+  $("checkout").innerHTML=cartItems.length?`<h3>COD Checkout</h3>
+  <div class="row"><div class="field"><label>Name</label><input id="nm"></div><div class="field"><label>Phone</label><input id="ph"></div></div>
+  <div class="field"><label>Address</label><textarea id="ad" rows="3"></textarea></div>
+  <div class="field"><label>Coupon</label><input id="coupon" placeholder="WELCOME10"></div>
+  <button class="green" onclick="placeOrder()">Place COD Order</button>`:"";
+}
+function qty(id,n){const i=cartItems.find(x=>x.id===id),p=db.products.find(x=>x.id===id);if(!i||!p)return;i.qty+=n;if(i.qty>Number(p.stock))i.qty=Number(p.stock);if(i.qty<1)cartItems=cartItems.filter(x=>x.id!==id);updateCount();drawCart()}
+function rem(id){cartItems=cartItems.filter(x=>x.id!==id);updateCount();drawCart()}
+
+async function placeOrder(){
+  const name=$("nm").value.trim(),phone=$("ph").value.trim(),address=$("ad").value.trim();
+  if(!name||!phone||!address)return alert("Please fill all details.");
+  const subtotal=cartItems.reduce((s,i)=>s+Number(db.products.find(p=>p.id===i.id).price)*i.qty,0);
+  const code=($("coupon").value||"").trim().toUpperCase();
+  const c=db.coupons.find(x=>x.code===code);
+  const discount=c?Math.round(subtotal*Number(c.value)/100):0;
+  const finalTotal=subtotal-discount;
+  const orderId="JS"+Date.now().toString().slice(-7);
+  const lines=cartItems.map(i=>{const p=db.products.find(p=>p.id===i.id);return p.name+" x"+i.qty+" = ₹"+(Number(p.price)*i.qty)}).join("\n");
+  try{
+    await addDoc(collection(firestore,"orders"),{
+      orderId,name,phone,address,total:finalTotal,status:"New",
+      date:new Date().toLocaleString("en-IN"),items:cartItems.map(x=>({...x}))
+    });
+    for(const i of cartItems){
+      const p=db.products.find(x=>x.id===i.id);
+      if(p) await updateDoc(doc(firestore,"Products",p.id),{stock:Math.max(0,Number(p.stock)-i.qty)});
+    }
+    const wa=db.settings.wa;
+    window.open("https://wa.me/"+wa+"?text="+encodeURIComponent("New COD Order\nOrder: "+orderId+"\nName: "+name+"\nPhone: "+phone+"\nAddress: "+address+"\n\n"+lines+"\n\nTotal: ₹"+finalTotal),"_blank");
+    cartItems=[];updateCount();closeM("cmodal");await loadData();alert("Order placed: "+orderId);
+  }catch(e){alert("Order error: "+e.message)}
+}
+
+async function adminLogin(){
+  const email=$("loginEmail").value.trim(),password=$("loginPassword").value;
+  if(!email||!password)return;
+  $("loginMsg").textContent="Logging in...";
+  try{
+    await signInWithEmailAndPassword(auth,email,password);
+    $("loginMsg").textContent="";
+    closeM("loginModal");
+    admin();
+  }catch(e){
+    $("loginMsg").textContent="Login failed: "+e.message;
+  }
+}
+
+function openAdmin(){
+  if(auth.currentUser) admin();
+  else $("loginModal").style.display="block";
+}
+
+function admin(){
+  $("amodal").style.display="block";
+  $("abox").innerHTML=`<button class="light close" onclick="closeM('amodal')">✕</button><h2>⚙️ Admin Dashboard</h2>
+  <div class="nav"><button class="dark" onclick="productsAdmin()">📦 Products</button><button class="dark" onclick="ordersAdmin()">🧾 Orders</button>
+  <button class="dark" onclick="shopAdmin()">🏪 Shop</button><button class="dark" onclick="couponAdmin()">🏷️ Coupons</button>
+  <button class="light" onclick="adminLogout()">Logout</button></div><hr><div id="ac"></div>`;
+  productsAdmin();
+}
+async function adminLogout(){await signOut(auth);closeM("amodal")}
+
+async function productsAdmin(){
+  $("ac").innerHTML=`<h3>Products</h3><button class="dark" onclick="editProduct()">＋ Add Product</button>`+
+  db.products.map(p=>`<div class="order"><b>${esc(p.name)}</b><br>₹${money(p.price)} • MRP ₹${money(p.mrp)} • ${esc(p.cat)} • Stock ${p.stock}<br>${(p.media||p.imgs||[]).length} media
+  <div class="actions"><button class="light" onclick="editProduct('${esc(p.id)}')">Edit</button><button class="red" onclick="delProduct('${esc(p.id)}')">Delete</button></div></div>`).join("");
+}
+
+function editProduct(id){
+  const old=db.products.find(x=>x.id===id);
+  const p=old||{name:"",price:0,mrp:0,cat:"General",stock:1,desc:"",media:[]};
+  tempMedia=[...(p.media||p.imgs||[])];
+  $("ac").innerHTML=`<h3>${old?"Edit":"Add"} Product</h3>
+  <div class="field"><label>Name</label><input id="pn" value="${esc(p.name)}"></div>
+  <div class="row"><div class="field"><label>Price ₹</label><input id="pp" type="number" value="${p.price}"></div>
+  <div class="field"><label>MRP ₹</label><input id="pm" type="number" value="${p.mrp}"></div></div>
+  <div class="row"><div class="field"><label>Stock</label><input id="ps" type="number" value="${p.stock}"></div>
+  <div class="field"><label>Category</label><input id="pc" value="${esc(p.cat)}"></div></div>
+  <div class="field"><label>Description</label><textarea id="pd">${esc(p.desc)}</textarea></div>
+  <div class="field"><label>Photos / Videos — select multiple</label><input id="files" type="file" accept="image/*,video/*" multiple onchange="loadFiles(this)">
+  <div id="prev" class="gallery"></div><div id="uploadProgress" class="progress"></div></div>
+  <div class="actions"><button class="dark" onclick="saveProduct('${id||""}')">Save</button><button class="light" onclick="productsAdmin()">Cancel</button></div>`;
+  showPrev();
+}
+
+function showPrev(){
+  $("prev").innerHTML=tempMedia.map((x,i)=>{
+    const v=String(x).includes(".mp4")||String(x).includes("video/upload");
+    return `<div class="thumb">${v?`<video src="${esc(x)}" muted></video>`:`<img src="${esc(x)}">`}<button class="red" onclick="tempMedia.splice(${i},1);showPrev()">×</button></div>`;
+  }).join("");
+}
+
+function loadFiles(input){
+  [...input.files].forEach(f=>{tempMedia.push({file:f});showPrev()});
+}
+
+async function uploadToCloudinary(file){
+  if(CLOUDINARY_CLOUD_NAME==="YOUR_CLOUDINARY_CLOUD_NAME"){
+    throw new Error("Cloudinary Cloud Name abhi code me set nahi kiya gaya hai.");
+  }
+  const fd=new FormData();
+  fd.append("file",file);
+  fd.append("upload_preset",CLOUDINARY_UPLOAD_PRESET);
+  const res=await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,{method:"POST",body:fd});
+  if(!res.ok) throw new Error("Cloudinary upload failed");
+  const data=await res.json();
+  return data.secure_url;
+}
+
+async function saveProduct(id){
+  const name=$("pn").value.trim();
+  if(!name)return alert("Product name required");
+  const progress=$("uploadProgress");
+  try{
+    const media=[];
+    for(let i=0;i<tempMedia.length;i++){
+      const item=tempMedia[i];
+      if(typeof item==="string") media.push(item);
+      else{
+        progress.textContent=`Uploading ${i+1}/${tempMedia.length}: ${item.file.name}`;
+        media.push(await uploadToCloudinary(item.file));
+      }
+    }
+    progress.textContent="Saving product...";
+    const data={name,price:Number($("pp").value),mrp:Number($("pm").value),stock:Number($("ps").value),
+      cat:$("pc").value.trim()||"General",desc:$("pd").value.trim(),media,updatedAt:new Date().toISOString()};
+    if(id) await setDoc(doc(firestore,"Products",id),data,{merge:true});
+    else await addDoc(collection(firestore,"Products"),{...data,createdAt:new Date().toISOString()});
+    progress.textContent="";
+    await loadData();productsAdmin();
+  }catch(e){alert("Save error: "+e.message);progress.textContent=""}
+}
+
+async function delProduct(id){
+  if(!confirm("Delete product?"))return;
+  try{await deleteDoc(doc(firestore,"Products",id));await loadData();productsAdmin()}
+  catch(e){alert("Delete error: "+e.message)}
+}
+
+async function ordersAdmin(){
+  const orders=[...db.orders].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  $("ac").innerHTML="<h3>Orders</h3>"+(orders.map(o=>`<div class="order"><b>${esc(o.orderId||o.id)}</b> • ${esc(o.date)}<br>${esc(o.name)} • ${esc(o.phone)}<br>${esc(o.address)}<br><b>Total ₹${money(o.total)}</b><br>
+  <select onchange="setStatus('${esc(o.id)}',this.value)"><option ${o.status==="New"?"selected":""}>New</option><option ${o.status==="Packed"?"selected":""}>Packed</option><option ${o.status==="Shipped"?"selected":""}>Shipped</option><option ${o.status==="Delivered"?"selected":""}>Delivered</option><option ${o.status==="Cancelled"?"selected":""}>Cancelled</option></select></div>`).join("")||"<p>No orders.</p>");
+}
+async function setStatus(id,s){try{await updateDoc(doc(firestore,"orders",id),{status:s});await loadData()}catch(e){alert(e.message)}}
+
+function shopAdmin(){
+  $("ac").innerHTML=`<h3>Shop Settings</h3><div class="field"><label>Shop Name</label><input id="sn" value="${esc(db.settings.name)}"></div>
+  <div class="field"><label>Heading</label><input id="st" value="${esc(db.settings.title)}"></div>
+  <div class="field"><label>Description</label><input id="ss" value="${esc(db.settings.sub)}"></div>
+  <div class="field"><label>WhatsApp Number with country code</label><input id="sw" value="${esc(db.settings.wa)}"></div>
+  <button class="dark" onclick="saveShop()">Save Settings</button>`;
+}
+async function saveShop(){
+  const data={name:$("sn").value||"Jishnu Store",title:$("st").value,sub:$("ss").value,wa:$("sw").value.replace(/\D/g,"")};
+  try{await setDoc(doc(firestore,"settings","main"),data,{merge:true});await loadData();shopAdmin();alert("Settings saved")}
+  catch(e){alert(e.message)}
+}
+
+function couponAdmin(){
+  $("ac").innerHTML=`<h3>Coupons</h3>`+
+  db.coupons.map(c=>`<div class="order"><b>${esc(c.code)}</b> — ${c.value}% <button class="red" onclick="deleteCoupon('${esc(c.id)}')">Delete</button></div>`).join("")+
+  `<div class="row"><input id="newc" placeholder="SAVE10"><input id="newv" type="number" placeholder="10"></div><br>
+  <button class="dark" onclick="addCoupon()">Add Coupon</button>`;
+}
+async function addCoupon(){
+  const code=$("newc").value.trim().toUpperCase(),value=Number($("newv").value);
+  if(!code||!value)return;
+  try{await addDoc(collection(firestore,"coupons"),{code,value});await loadData();couponAdmin()}catch(e){alert(e.message)}
+}
+async function deleteCoupon(id){try{await deleteDoc(doc(firestore,"coupons",id));await loadData();couponAdmin()}catch(e){alert(e.message)}}
+
+window.setCat=setCat;window.render=render;window.openCart=openCart;window.closeM=closeM;window.add=add;window.view=view;window.qty=qty;window.rem=rem;
+window.placeOrder=placeOrder;window.adminLogin=adminLogin;window.openAdmin=openAdmin;window.admin=admin;window.productsAdmin=productsAdmin;
+window.ordersAdmin=ordersAdmin;window.shopAdmin=shopAdmin;window.couponAdmin=couponAdmin;window.editProduct=editProduct;
+window.loadFiles=loadFiles;window.showPrev=showPrev;window.saveProduct=saveProduct;window.delProduct=delProduct;
+window.setStatus=setStatus;window.saveShop=saveShop;window.addCoupon=addCoupon;window.deleteCoupon=deleteCoupon;
+window.viewMedia=viewMedia;
+
+onAuthStateChanged(auth,user=>{isAdmin=!!user;});
+$("shopName").onclick=()=>openAdmin();
+
+await loadData();
+
+if(new URLSearchParams(location.search).get("admin")==="1") setTimeout(openAdmin,500);
+</script>
+</body>
+</html>
